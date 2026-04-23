@@ -1,0 +1,809 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>RunPost – COROS SNS投稿ツール</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #13131a;
+    --card: #1a1a24;
+    --border: #2a2a3a;
+    --accent: #00e5a0;
+    --accent2: #ff4d6d;
+    --text: #f0f0f5;
+    --muted: #6b6b80;
+    --radius: 16px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Noto Sans JP', sans-serif;
+    min-height: 100vh;
+    max-width: 480px;
+    margin: 0 auto;
+    padding-bottom: 40px;
+  }
+
+  /* Header */
+  .header {
+    background: linear-gradient(135deg, #0f0f1a 0%, #13131a 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 20px 20px 16px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .header-inner {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .logo-icon {
+    width: 36px; height: 36px;
+    background: var(--accent);
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .logo-icon svg { width: 20px; height: 20px; }
+  .logo-text {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 26px;
+    letter-spacing: 2px;
+    line-height: 1;
+    color: var(--text);
+  }
+  .logo-sub { font-size: 10px; color: var(--muted); letter-spacing: 1px; margin-top: 2px; }
+
+  /* Steps */
+  .steps {
+    display: flex;
+    padding: 16px 20px 0;
+    gap: 6px;
+  }
+  .step {
+    flex: 1;
+    height: 3px;
+    background: var(--border);
+    border-radius: 2px;
+    transition: background 0.3s;
+  }
+  .step.done { background: var(--accent); }
+  .step.active { background: var(--accent); opacity: 0.5; }
+
+  /* Sections */
+  .section { padding: 20px 20px 0; }
+  .section-title {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .section-title::before {
+    content: '';
+    width: 3px; height: 14px;
+    background: var(--accent);
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+
+  /* Upload Zone */
+  .upload-zone {
+    border: 1.5px dashed var(--border);
+    border-radius: var(--radius);
+    padding: 32px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+    background: var(--surface);
+  }
+  .upload-zone:active { transform: scale(0.98); }
+  .upload-zone.dragover { border-color: var(--accent); background: rgba(0,229,160,0.05); }
+  #fileInput { display: none; }
+  .upload-zone { -webkit-user-select: none; user-select: none; }
+  .upload-icon {
+    width: 52px; height: 52px;
+    background: rgba(0,229,160,0.1);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 12px;
+  }
+  .upload-icon svg { width: 24px; height: 24px; color: var(--accent); }
+  .upload-title { font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+  .upload-sub { font-size: 12px; color: var(--muted); }
+  .upload-badge {
+    display: inline-block;
+    margin-top: 10px;
+    padding: 4px 10px;
+    background: rgba(0,229,160,0.1);
+    color: var(--accent);
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+  }
+
+  /* Preview */
+  .preview-wrap {
+    position: relative;
+    border-radius: var(--radius);
+    overflow: hidden;
+    background: var(--surface);
+    border: 1px solid var(--border);
+  }
+  .preview-wrap img {
+    width: 100%;
+    display: block;
+    max-height: 360px;
+    object-fit: contain;
+    background: #000;
+  }
+  .preview-overlay {
+    position: absolute;
+    top: 10px; right: 10px;
+    display: flex; gap: 6px;
+  }
+  .preview-btn {
+    width: 34px; height: 34px;
+    border-radius: 50%;
+    border: none;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px;
+  }
+  .preview-btn.delete { background: rgba(255,77,109,0.85); }
+  .preview-btn.delete svg { width: 16px; height: 16px; color: #fff; }
+  .preview-count {
+    position: absolute;
+    bottom: 10px; left: 10px;
+    background: rgba(0,0,0,0.7);
+    color: #fff;
+    font-size: 11px;
+    padding: 3px 8px;
+    border-radius: 20px;
+    font-weight: 700;
+  }
+
+  /* Multi-image thumbnails */
+  .thumb-row {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+  .thumb {
+    width: 64px; height: 64px;
+    border-radius: 10px;
+    object-fit: cover;
+    border: 2px solid var(--border);
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: border-color 0.2s;
+  }
+  .thumb.active { border-color: var(--accent); }
+  .thumb-add {
+    width: 64px; height: 64px;
+    border-radius: 10px;
+    border: 1.5px dashed var(--border);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+    background: var(--surface);
+    position: relative;
+    transition: border-color 0.2s;
+  }
+  .thumb-add:active { border-color: var(--accent); }
+  .thumb-add input { display: none; }
+  .thumb-add svg { width: 20px; height: 20px; color: var(--muted); }
+
+  /* Memo */
+  .memo-area {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px;
+    color: var(--text);
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: 14px;
+    resize: none;
+    outline: none;
+    transition: border-color 0.2s;
+    line-height: 1.7;
+  }
+  .memo-area:focus { border-color: var(--accent); }
+  .memo-area::placeholder { color: var(--muted); }
+
+  /* Stats row */
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+  .stat-input-wrap { position: relative; }
+  .stat-label {
+    font-size: 10px;
+    color: var(--muted);
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+    display: flex; align-items: center; gap: 5px;
+  }
+  .stat-label svg { width: 12px; height: 12px; }
+  .stat-input {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px 14px;
+    color: var(--text);
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .stat-input:focus { border-color: var(--accent); }
+  .stat-input::placeholder { color: var(--border); font-weight: 400; }
+
+  /* Tone selector */
+  .tone-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+  .tone-btn {
+    padding: 12px 8px;
+    border-radius: 12px;
+    border: 1.5px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.2s;
+  }
+  .tone-btn.selected { border-color: var(--accent); background: rgba(0,229,160,0.1); color: var(--accent); }
+  .tone-emoji { font-size: 18px; display: block; margin-bottom: 4px; }
+
+  /* SNS selector */
+  .sns-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+  .sns-btn {
+    padding: 10px 6px;
+    border-radius: 12px;
+    border: 1.5px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.2s;
+  }
+  .sns-btn.selected { border-color: var(--accent2); background: rgba(255,77,109,0.1); color: var(--accent2); }
+  .sns-icon { font-size: 20px; display: block; margin-bottom: 3px; }
+
+  /* Generate button */
+  .gen-btn {
+    width: 100%;
+    padding: 18px;
+    background: var(--accent);
+    color: #000;
+    border: none;
+    border-radius: var(--radius);
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 22px;
+    letter-spacing: 2px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+  }
+  .gen-btn:active { transform: scale(0.97); background: #00c484; }
+  .gen-btn svg { width: 22px; height: 22px; }
+  .gen-btn.loading { opacity: 0.6; pointer-events: none; }
+
+  /* Output */
+  .output-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+  .output-header {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .output-platform {
+    font-size: 12px; font-weight: 700; color: var(--muted); letter-spacing: 1px; text-transform: uppercase;
+  }
+  .output-actions { display: flex; gap: 6px; }
+  .action-btn {
+    padding: 6px 14px;
+    border-radius: 20px;
+    border: none;
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .copy-btn { background: rgba(0,229,160,0.15); color: var(--accent); }
+  .copy-btn.copied { background: var(--accent); color: #000; }
+  .regen-btn { background: rgba(255,255,255,0.08); color: var(--muted); }
+  .output-text {
+    padding: 16px;
+    font-size: 14px;
+    line-height: 1.85;
+    color: var(--text);
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
+  .char-count { font-size: 11px; color: var(--muted); padding: 0 16px 12px; text-align: right; }
+
+  /* Toast */
+  .toast {
+    position: fixed;
+    bottom: 30px; left: 50%;
+    transform: translateX(-50%) translateY(80px);
+    background: var(--accent);
+    color: #000;
+    padding: 12px 24px;
+    border-radius: 50px;
+    font-size: 14px;
+    font-weight: 700;
+    z-index: 999;
+    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    white-space: nowrap;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+
+  /* Divider */
+  .divider { height: 1px; background: var(--border); margin: 24px 20px 0; }
+
+  /* Spinner */
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spinner {
+    width: 20px; height: 20px;
+    border: 2px solid rgba(0,0,0,0.3);
+    border-top-color: #000;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    display: none;
+  }
+  .gen-btn.loading .spinner { display: block; }
+  .gen-btn.loading .gen-label { display: none; }
+
+  /* Footer */
+  .footer {
+    text-align: center;
+    padding: 28px 20px 0;
+    font-size: 11px;
+    color: var(--border);
+  }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <div class="header-inner">
+    <div class="logo-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+      </svg>
+    </div>
+    <div>
+      <div class="logo-text">RUN POST</div>
+      <div class="logo-sub">COROS × SNS GENERATOR</div>
+    </div>
+  </div>
+</div>
+
+<!-- Steps bar -->
+<div class="steps">
+  <div class="step done" id="s1"></div>
+  <div class="step" id="s2"></div>
+  <div class="step" id="s3"></div>
+</div>
+
+<!-- Section 1: Upload -->
+<div class="section" style="margin-top: 20px;">
+  <div class="section-title">スクリーンショット</div>
+
+  <input type="file" id="fileInput" accept="image/*" multiple>
+  <label class="upload-zone" id="uploadZone" for="fileInput">
+    <div class="upload-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
+      </svg>
+    </div>
+    <div class="upload-title">COROSスクショをアップロード</div>
+    <div class="upload-sub">タップして画像を選択</div>
+    <div class="upload-badge">JPG / PNG 対応</div>
+  </label>
+
+  <!-- Preview area (hidden by default) -->
+  <div id="previewArea" style="display:none; margin-top: 12px;">
+    <div class="preview-wrap">
+      <img id="mainPreview" src="" alt="プレビュー">
+      <div class="preview-overlay">
+        <button class="preview-btn delete" id="deleteBtn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+      <div class="preview-count" id="previewCount"></div>
+    </div>
+    <div class="thumb-row" id="thumbRow"></div>
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<!-- Section 2: Run Stats -->
+<div class="section">
+  <div class="section-title">ランデータ（任意）</div>
+  <div class="stats-row">
+    <div>
+      <div class="stat-label">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        タイム
+      </div>
+      <input class="stat-input" id="statTime" type="text" placeholder="1:23:45" maxlength="10">
+    </div>
+    <div>
+      <div class="stat-label">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 18 0 9 9 0 0 0-18 0"/><path d="M12 8v4l3 3"/></svg>
+        距離 (km)
+      </div>
+      <input class="stat-input" id="statDist" type="text" placeholder="10.0" maxlength="8">
+    </div>
+    <div>
+      <div class="stat-label">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        ペース (min/km)
+      </div>
+      <input class="stat-input" id="statPace" type="text" placeholder="5:30" maxlength="8">
+    </div>
+    <div>
+      <div class="stat-label">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+        心拍数 (bpm)
+      </div>
+      <input class="stat-input" id="statHR" type="text" placeholder="145" maxlength="6">
+    </div>
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<!-- Section 3: Memo -->
+<div class="section">
+  <div class="section-title">メモ・感想</div>
+  <textarea class="memo-area" id="memoText" rows="4" placeholder="今日のランの感想、コース、天気、気づきなど自由に入力..."></textarea>
+</div>
+
+<div class="divider"></div>
+
+<!-- Section 4: Tone -->
+<div class="section">
+  <div class="section-title">投稿のトーン</div>
+  <div class="tone-grid">
+    <button class="tone-btn selected" data-tone="motivation">
+      <span class="tone-emoji">🔥</span>モチベ系
+    </button>
+    <button class="tone-btn" data-tone="casual">
+      <span class="tone-emoji">😊</span>カジュアル
+    </button>
+    <button class="tone-btn" data-tone="serious">
+      <span class="tone-emoji">📊</span>データ重視
+    </button>
+    <button class="tone-btn" data-tone="fun">
+      <span class="tone-emoji">🎉</span>楽しい系
+    </button>
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<!-- Section 5: SNS -->
+<div class="section">
+  <div class="section-title">投稿先SNS</div>
+  <div class="sns-grid">
+    <button class="sns-btn selected" data-sns="X（Twitter）">
+      <span class="sns-icon">𝕏</span>X / Twitter
+    </button>
+    <button class="sns-btn" data-sns="Instagram">
+      <span class="sns-icon">📸</span>Instagram
+    </button>
+    <button class="sns-btn" data-sns="Threads">
+      <span class="sns-icon">🧵</span>Threads
+    </button>
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<!-- Generate Button -->
+<div class="section" style="margin-top: 24px;">
+  <button class="gen-btn" id="genBtn">
+    <span class="gen-label" style="display: flex; align-items: center; gap: 10px;">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+      </svg>
+      投稿文を生成する
+    </span>
+    <div class="spinner"></div>
+  </button>
+</div>
+
+<!-- Output -->
+<div class="section" id="outputSection" style="display:none; margin-top: 20px;">
+  <div class="section-title">生成された投稿文</div>
+  <div class="output-card">
+    <div class="output-header">
+      <span class="output-platform" id="outputPlatform">X / TWITTER</span>
+      <div class="output-actions">
+        <button class="action-btn regen-btn" id="regenBtn">再生成</button>
+        <button class="action-btn copy-btn" id="copyBtn">コピー</button>
+      </div>
+    </div>
+    <div class="output-text" id="outputText"></div>
+    <div class="char-count" id="charCount"></div>
+  </div>
+</div>
+
+<div class="footer">RUN POST v1.0 — Powered by AI ⚡</div>
+
+<!-- Toast -->
+<div class="toast" id="toast">✓ コピーしました！</div>
+
+<script>
+  let images = [];
+  let currentIdx = 0;
+  let selectedTone = 'motivation';
+  let selectedSNS = 'X（Twitter）';
+
+  // File input
+  document.getElementById('fileInput').addEventListener('change', function(e) {
+    handleFiles(Array.from(e.target.files));
+  });
+
+  // Drag & drop (デスクトップ用)
+  const zone = document.getElementById('uploadZone');
+  zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('dragover'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+  zone.addEventListener('drop', e => {
+    e.preventDefault();
+    zone.classList.remove('dragover');
+    handleFiles(Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/')));
+  });
+
+  // ボタンイベント（addEventListener方式でiOS対応）
+  document.getElementById('genBtn').addEventListener('click', generatePost);
+  document.getElementById('deleteBtn').addEventListener('click', function() {
+    images.splice(currentIdx, 1);
+    if (images.length === 0) {
+      document.getElementById('previewArea').style.display = 'none';
+      document.getElementById('uploadZone').style.display = '';
+      document.getElementById('fileInput').value = '';
+    } else {
+      currentIdx = Math.min(currentIdx, images.length - 1);
+      showPreview(currentIdx);
+    }
+    updateSteps();
+  });
+
+  // Toneボタン
+  document.querySelectorAll('.tone-btn').forEach(btn => {
+    btn.addEventListener('click', function() { selectTone(this); });
+  });
+
+  // SNSボタン
+  document.querySelectorAll('.sns-btn').forEach(btn => {
+    btn.addEventListener('click', function() { selectSNS(this); });
+  });
+
+  // 再生成・コピー
+  document.getElementById('regenBtn').addEventListener('click', generatePost);
+  document.getElementById('copyBtn').addEventListener('click', copyPost);
+
+  function handleFiles(files) {
+    files.forEach(file => {
+      const reader = new FileReader();
+      reader.onload = e => {
+        images.push(e.target.result);
+        if (images.length === 1) showPreview(0);
+        else updateThumbs();
+        updateSteps();
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function showPreview(idx) {
+    currentIdx = idx;
+    document.getElementById('mainPreview').src = images[idx];
+    document.getElementById('previewArea').style.display = 'block';
+    document.getElementById('uploadZone').style.display = 'none';
+    document.getElementById('previewCount').textContent = images.length > 1 ? `${idx+1} / ${images.length}` : '';
+    updateThumbs();
+    updateSteps();
+  }
+
+  function updateThumbs() {
+    const row = document.getElementById('thumbRow');
+    row.innerHTML = '';
+    images.forEach((src, i) => {
+      const img = document.createElement('img');
+      img.src = src;
+      img.className = 'thumb' + (i === currentIdx ? ' active' : '');
+      img.onclick = () => showPreview(i);
+      row.appendChild(img);
+    });
+    // Add more button
+    const addBtn = document.createElement('div');
+    addBtn.className = 'thumb-add';
+    addBtn.innerHTML = `<input type="file" accept="image/*" multiple id="thumbFileInput"><label for="thumbFileInput" style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;cursor:pointer;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></label>`;
+    row.appendChild(addBtn);
+    document.getElementById('thumbFileInput').addEventListener('change', function(e) {
+      handleFiles(Array.from(e.target.files));
+    });
+    document.getElementById('previewCount').textContent = images.length > 1 ? `${currentIdx+1} / ${images.length}` : '';
+  }
+
+  function selectTone(btn) {
+    document.querySelectorAll('.tone-btn').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    selectedTone = btn.dataset.tone;
+  }
+
+  function selectSNS(btn) {
+    document.querySelectorAll('.sns-btn').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    selectedSNS = btn.dataset.sns;
+  }
+
+  function updateSteps() {
+    const s1 = document.getElementById('s1');
+    const s2 = document.getElementById('s2');
+    const s3 = document.getElementById('s3');
+    const hasImg = images.length > 0;
+    const hasMemo = document.getElementById('memoText').value.trim();
+    const hasOutput = document.getElementById('outputSection').style.display !== 'none';
+    s1.className = 'step ' + (hasImg ? 'done' : 'active');
+    s2.className = 'step ' + (hasImg && (hasMemo || document.getElementById('statDist').value) ? 'done' : hasImg ? 'active' : '');
+    s3.className = 'step ' + (hasOutput ? 'done' : '');
+  }
+
+  document.getElementById('memoText').addEventListener('input', updateSteps);
+
+  async function generatePost() {
+    const btn = document.getElementById('genBtn');
+    btn.classList.add('loading');
+
+    const time = document.getElementById('statTime').value;
+    const dist = document.getElementById('statDist').value;
+    const pace = document.getElementById('statPace').value;
+    const hr = document.getElementById('statHR').value;
+    const memo = document.getElementById('memoText').value;
+
+    const toneMap = {
+      motivation: '熱い・モチベーション系・力強い言葉',
+      casual: 'カジュアル・親しみやすい・自然な話し言葉',
+      serious: 'データ重視・分析的・落ち着いたトーン',
+      fun: '楽しい・ポジティブ・絵文字多め'
+    };
+
+    const snsRules = {
+      'X（Twitter）': '140文字以内、ハッシュタグ3〜5個、コンパクトに',
+      'Instagram': '絵文字豊富、ハッシュタグ10〜15個、少し長め、感情豊かに',
+      'Threads': '気軽な文体、ハッシュタグ少なめ（0〜3個）、会話的に'
+    };
+
+    let statsText = '';
+    if (dist) statsText += `距離: ${dist}km `;
+    if (time) statsText += `タイム: ${time} `;
+    if (pace) statsText += `ペース: ${pace}/km `;
+    if (hr) statsText += `心拍数: ${hr}bpm`;
+
+    const prompt = `あなたはランニングSNS投稿の専門家です。
+以下の情報をもとに${selectedSNS}用の日本語投稿文を1つ生成してください。
+
+【SNSルール】${snsRules[selectedSNS]}
+
+【トーン】${toneMap[selectedTone]}
+
+【ランデータ】${statsText || '（未入力）'}
+
+【メモ・感想】${memo || '（未入力）'}
+
+【注意】
+- 投稿文のみを返してください（説明文・前置き不要）
+- 自然で魅力的な日本語で書く
+- COROSウォッチでデータを記録したことを自然に盛り込む
+- ランニングの達成感や感情を表現する`;
+
+    try {
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 1000,
+          messages: [{ role: 'user', content: prompt }]
+        })
+      });
+      const data = await res.json();
+      const text = data.content?.[0]?.text || '投稿文の生成に失敗しました。もう一度お試しください。';
+
+      document.getElementById('outputText').textContent = text;
+      document.getElementById('charCount').textContent = `${text.length}文字`;
+      document.getElementById('outputPlatform').textContent = selectedSNS.toUpperCase();
+      document.getElementById('outputSection').style.display = 'block';
+      document.getElementById('outputSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      document.getElementById('copyBtn').textContent = 'コピー';
+      document.getElementById('copyBtn').classList.remove('copied');
+      updateSteps();
+    } catch (e) {
+      alert('生成エラーが発生しました。ネットワークを確認してください。');
+    }
+
+    btn.classList.remove('loading');
+  }
+
+  function copyPost() {
+    const text = document.getElementById('outputText').textContent;
+    if (!text) return;
+    navigator.clipboard.writeText(text).then(() => {
+      const btn = document.getElementById('copyBtn');
+      btn.textContent = '✓ コピー済';
+      btn.classList.add('copied');
+      showToast('✓ クリップボードにコピーしました');
+      setTimeout(() => {
+        btn.textContent = 'コピー';
+        btn.classList.remove('copied');
+      }, 2500);
+    }).catch(() => {
+      // fallback
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      showToast('✓ コピーしました！');
+    });
+  }
+
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2500);
+  }
+</script>
+</body>
+</html>
