@@ -648,6 +648,12 @@
         </svg>
         Xに投稿する
       </button>
+      <button class="tweet-btn" id="downloadBtn" style="margin-top:8px;">
+        📥 画像を保存
+      </button>
+      <button class="tweet-btn" id="shareBtn" style="margin-top:8px;">
+        📤 シェアする
+      </button>
     </div>
   </div>
 </div>
@@ -788,6 +794,28 @@
 
   document.getElementById('regenBtn').addEventListener('click', generatePost);
   document.getElementById('copyBtn').addEventListener('click', copyPost);
+
+  // 画像を保存ボタン
+  document.getElementById('downloadBtn').addEventListener('click', function() {
+    if (images.length === 0) { showToast('画像がアップロードされていません'); return; }
+    const link = document.createElement('a');
+    link.href = images[currentIdx];
+    link.download = 'runpost.jpg';
+    link.click();
+  });
+
+  // シェアボタン
+  document.getElementById('shareBtn').addEventListener('click', async function() {
+    const text = document.getElementById('outputText').textContent;
+    if (!text) return;
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: 'RunPost', text });
+      } catch(e) {}
+    } else {
+      alert('この端末はシェア機能に対応していません');
+    }
+  });
 
   // Xに投稿ボタン
   document.getElementById('tweetBtn').addEventListener('click', function() {
