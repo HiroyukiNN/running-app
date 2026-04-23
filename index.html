@@ -351,6 +351,29 @@
   .copy-btn { background: rgba(0,229,160,0.15); color: var(--accent); }
   .copy-btn.copied { background: var(--accent); color: #000; }
   .regen-btn { background: rgba(255,255,255,0.08); color: var(--muted); }
+  /* Xで投稿ボタン */
+  .tweet-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    margin-top: 10px;
+    padding: 12px 18px;
+    background: #000;
+    color: #fff;
+    border: 1.5px solid #333;
+    border-radius: 12px;
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    justify-content: center;
+    transition: background 0.2s;
+    letter-spacing: 0.5px;
+  }
+  .tweet-btn:active { background: #1a1a1a; }
+  .tweet-btn svg { width: 18px; height: 18px; flex-shrink: 0; }
+
   .output-text {
     padding: 16px;
     font-size: 14px;
@@ -393,6 +416,52 @@
   }
   .gen-btn.loading .spinner { display: block; }
   .gen-btn.loading .gen-label { display: none; }
+
+  /* 履歴セクション */
+  .history-section { padding: 20px 20px 0; }
+  .history-list { display: flex; flex-direction: column; gap: 10px; }
+  .history-item {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px 14px;
+    position: relative;
+  }
+  .history-meta {
+    font-size: 10px;
+    color: var(--muted);
+    margin-bottom: 6px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .history-text {
+    font-size: 13px;
+    color: var(--text);
+    line-height: 1.7;
+    white-space: pre-wrap;
+    word-break: break-all;
+    max-height: 80px;
+    overflow: hidden;
+    mask-image: linear-gradient(to bottom, #000 60%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to bottom, #000 60%, transparent 100%);
+  }
+  .history-del {
+    background: none;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 16px;
+    line-height: 1;
+    padding: 0 2px;
+  }
+  .history-del:hover { color: var(--accent2); }
+  .history-empty {
+    font-size: 13px;
+    color: var(--muted);
+    text-align: center;
+    padding: 20px 0;
+  }
 
   /* Footer */
   .footer {
@@ -443,7 +512,6 @@
     <div class="upload-badge">JPG / PNG 対応</div>
   </label>
 
-  <!-- Preview area (hidden by default) -->
   <div id="previewArea" style="display:none; margin-top: 12px;">
     <div class="preview-wrap">
       <img id="mainPreview" src="" alt="プレビュー">
@@ -572,6 +640,25 @@
     </div>
     <div class="output-text" id="outputText"></div>
     <div class="char-count" id="charCount"></div>
+    <!-- Xで投稿ボタン（X選択時のみ表示） -->
+    <div style="padding: 0 16px 16px;" id="tweetBtnWrap">
+      <button class="tweet-btn" id="tweetBtn">
+        <svg viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+          <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.742l7.742-8.851L1.254 2.25H8.08l4.253 5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+        </svg>
+        Xに投稿する
+      </button>
+    </div>
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<!-- 投稿履歴 -->
+<div class="history-section">
+  <div class="section-title">投稿履歴</div>
+  <div class="history-list" id="historyList">
+    <div class="history-empty">まだ投稿履歴がありません</div>
   </div>
 </div>
 
@@ -586,12 +673,89 @@
   let selectedTone = 'motivation';
   let selectedSNS = 'X（Twitter）';
 
-  // File input
+  // ===== 仮生成ロジック（fetchの代わり） =====
+  function fakeGenerate(tone, sns, dist, time, pace, hr, memo) {
+    const templates = {
+      motivation: [
+        `今日も限界を超えた🔥\n${dist ? dist + 'km、' : ''}${time ? 'タイム' + time + '、' : ''}${pace ? 'ペース' + pace + '/km。' : ''}\nCOROSが全てを記録してくれた。\n諦めそうになった瞬間、足が動いた。\nそれだけで今日は最高の一日。\n#ランニング #COROS #トレーニング #マラソン #RunningLife`,
+        `限界の先に何かある。\n${dist ? dist + 'km走りきった。' : 'きつかったけど、やりきった。'}\n${memo ? memo + '\n' : ''}COROSのデータが成長を証明してくれる💪\n#ランニング #COROS #自己ベスト更新 #ランナー`,
+      ],
+      casual: [
+        `今日のランニング記録🏃\n${dist ? '距離：' + dist + 'km\n' : ''}${time ? 'タイム：' + time + '\n' : ''}${pace ? 'ペース：' + pace + '/km\n' : ''}${memo || 'いい汗かけました！'}\nCOROSちゃんに全部記録してもらってる😊\n#ランニング #COROS #朝ラン`,
+        `走ってきたー！${dist ? dist + 'km😄' : ''}\n${memo ? memo + '\n' : ''}天気もよくて最高の朝でした☀️\nCOROSのログ見るのが毎日の楽しみ。\n#ランニング #COROS #ランライフ`,
+      ],
+      serious: [
+        `本日のトレーニングログ📊\n${dist ? '距離：' + dist + 'km' : ''}\n${time ? 'タイム：' + time : ''}\n${pace ? '平均ペース：' + pace + '/km' : ''}\n${hr ? '平均心拍：' + hr + 'bpm' : ''}\n${memo ? memo + '\n' : ''}COROSで詳細データを管理。継続が力。\n#ランニング #COROS #データ分析 #トレーニング`,
+        `【ランニングログ】\n${dist ? dist + 'km完走。' : ''}${pace ? 'ペース' + pace + '/km。' : ''}${hr ? '心拍数' + hr + 'bpm。' : ''}\n${memo || 'フォームの改善が数値に出てきた。'}\nCOROS記録継続中📈\n#COROS #ランニング #マラソン練習`,
+      ],
+      fun: [
+        `走ってきたよーー🎉🏃‍♂️💨\n${dist ? dist + 'km完走！えらい！' : 'よく頑張った！'}\n${memo ? memo + '\n' : ''}COROSくんがちゃんと褒めてくれた（気がする）笑\n今日も生きてる🙌\n#ランニング #COROS #楽しいラン #がんばった`,
+        `ランラン🎵${dist ? dist + 'km！' : ''}\n${memo || '風が気持ちよかった〜！'}\nCOROSと一緒に走る毎日最高🌟\n#ランニング #COROS #ランニング女子 #マラソン好き`,
+      ]
+    };
+    const list = templates[tone] || templates.motivation;
+    return list[Math.floor(Math.random() * list.length)];
+  }
+
+  // ===== localStorage 履歴 =====
+  const HISTORY_KEY = 'runpost_history';
+
+  function loadHistory() {
+    try { return JSON.parse(localStorage.getItem(HISTORY_KEY)) || []; } catch { return []; }
+  }
+
+  function saveHistory(entry) {
+    const history = loadHistory();
+    history.unshift(entry);
+    if (history.length > 20) history.pop(); // 最大20件
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+    renderHistory();
+  }
+
+  function deleteHistory(idx) {
+    const history = loadHistory();
+    history.splice(idx, 1);
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+    renderHistory();
+  }
+
+  function renderHistory() {
+    const list = document.getElementById('historyList');
+    const history = loadHistory();
+    if (history.length === 0) {
+      list.innerHTML = '<div class="history-empty">まだ投稿履歴がありません</div>';
+      return;
+    }
+    list.innerHTML = history.map((item, i) => `
+      <div class="history-item">
+        <div class="history-meta">
+          <span>${item.sns} · ${item.date}</span>
+          <button class="history-del" data-idx="${i}" title="削除">✕</button>
+        </div>
+        <div class="history-text">${escHtml(item.text)}</div>
+      </div>
+    `).join('');
+    list.querySelectorAll('.history-del').forEach(btn => {
+      btn.addEventListener('click', function() {
+        deleteHistory(parseInt(this.dataset.idx));
+      });
+    });
+  }
+
+  function escHtml(str) {
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function nowStr() {
+    const d = new Date();
+    return `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+  }
+
+  // ===== File input =====
   document.getElementById('fileInput').addEventListener('change', function(e) {
     handleFiles(Array.from(e.target.files));
   });
 
-  // Drag & drop (デスクトップ用)
   const zone = document.getElementById('uploadZone');
   zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('dragover'); });
   zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
@@ -601,7 +765,6 @@
     handleFiles(Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/')));
   });
 
-  // ボタンイベント（addEventListener方式でiOS対応）
   document.getElementById('genBtn').addEventListener('click', generatePost);
   document.getElementById('deleteBtn').addEventListener('click', function() {
     images.splice(currentIdx, 1);
@@ -616,19 +779,22 @@
     updateSteps();
   });
 
-  // Toneボタン
   document.querySelectorAll('.tone-btn').forEach(btn => {
     btn.addEventListener('click', function() { selectTone(this); });
   });
-
-  // SNSボタン
   document.querySelectorAll('.sns-btn').forEach(btn => {
     btn.addEventListener('click', function() { selectSNS(this); });
   });
 
-  // 再生成・コピー
   document.getElementById('regenBtn').addEventListener('click', generatePost);
   document.getElementById('copyBtn').addEventListener('click', copyPost);
+
+  // Xに投稿ボタン
+  document.getElementById('tweetBtn').addEventListener('click', function() {
+    const text = document.getElementById('outputText').textContent;
+    if (!text) return;
+    window.open('https://twitter.com/intent/tweet?text=' + encodeURIComponent(text), '_blank');
+  });
 
   function handleFiles(files) {
     files.forEach(file => {
@@ -663,7 +829,6 @@
       img.onclick = () => showPreview(i);
       row.appendChild(img);
     });
-    // Add more button
     const addBtn = document.createElement('div');
     addBtn.className = 'thumb-add';
     addBtn.innerHTML = `<input type="file" accept="image/*" multiple id="thumbFileInput"><label for="thumbFileInput" style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;cursor:pointer;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></label>`;
@@ -684,18 +849,17 @@
     document.querySelectorAll('.sns-btn').forEach(b => b.classList.remove('selected'));
     btn.classList.add('selected');
     selectedSNS = btn.dataset.sns;
+    // Xボタンは X選択時のみ表示
+    document.getElementById('tweetBtnWrap').style.display = selectedSNS === 'X（Twitter）' ? '' : 'none';
   }
 
   function updateSteps() {
-    const s1 = document.getElementById('s1');
-    const s2 = document.getElementById('s2');
-    const s3 = document.getElementById('s3');
     const hasImg = images.length > 0;
     const hasMemo = document.getElementById('memoText').value.trim();
     const hasOutput = document.getElementById('outputSection').style.display !== 'none';
-    s1.className = 'step ' + (hasImg ? 'done' : 'active');
-    s2.className = 'step ' + (hasImg && (hasMemo || document.getElementById('statDist').value) ? 'done' : hasImg ? 'active' : '');
-    s3.className = 'step ' + (hasOutput ? 'done' : '');
+    document.getElementById('s1').className = 'step ' + (hasImg ? 'done' : 'active');
+    document.getElementById('s2').className = 'step ' + (hasImg && (hasMemo || document.getElementById('statDist').value) ? 'done' : hasImg ? 'active' : '');
+    document.getElementById('s3').className = 'step ' + (hasOutput ? 'done' : '');
   }
 
   document.getElementById('memoText').addEventListener('input', updateSteps);
@@ -707,68 +871,31 @@
     const time = document.getElementById('statTime').value;
     const dist = document.getElementById('statDist').value;
     const pace = document.getElementById('statPace').value;
-    const hr = document.getElementById('statHR').value;
+    const hr   = document.getElementById('statHR').value;
     const memo = document.getElementById('memoText').value;
 
-    const toneMap = {
-      motivation: '熱い・モチベーション系・力強い言葉',
-      casual: 'カジュアル・親しみやすい・自然な話し言葉',
-      serious: 'データ重視・分析的・落ち着いたトーン',
-      fun: '楽しい・ポジティブ・絵文字多め'
-    };
-
-    const snsRules = {
-      'X（Twitter）': '140文字以内、ハッシュタグ3〜5個、コンパクトに',
-      'Instagram': '絵文字豊富、ハッシュタグ10〜15個、少し長め、感情豊かに',
-      'Threads': '気軽な文体、ハッシュタグ少なめ（0〜3個）、会話的に'
-    };
-
-    let statsText = '';
-    if (dist) statsText += `距離: ${dist}km `;
-    if (time) statsText += `タイム: ${time} `;
-    if (pace) statsText += `ペース: ${pace}/km `;
-    if (hr) statsText += `心拍数: ${hr}bpm`;
-
-    const prompt = `あなたはランニングSNS投稿の専門家です。
-以下の情報をもとに${selectedSNS}用の日本語投稿文を1つ生成してください。
-
-【SNSルール】${snsRules[selectedSNS]}
-
-【トーン】${toneMap[selectedTone]}
-
-【ランデータ】${statsText || '（未入力）'}
-
-【メモ・感想】${memo || '（未入力）'}
-
-【注意】
-- 投稿文のみを返してください（説明文・前置き不要）
-- 自然で魅力的な日本語で書く
-- COROSウォッチでデータを記録したことを自然に盛り込む
-- ランニングの達成感や感情を表現する`;
+    // 少しディレイを入れてローディング感を演出
+    await new Promise(r => setTimeout(r, 600));
 
     try {
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 1000,
-          messages: [{ role: 'user', content: prompt }]
-        })
-      });
-      const data = await res.json();
-      const text = data.content?.[0]?.text || '投稿文の生成に失敗しました。もう一度お試しください。';
+      const text = fakeGenerate(selectedTone, selectedSNS, dist, time, pace, hr, memo);
 
       document.getElementById('outputText').textContent = text;
       document.getElementById('charCount').textContent = `${text.length}文字`;
       document.getElementById('outputPlatform').textContent = selectedSNS.toUpperCase();
       document.getElementById('outputSection').style.display = 'block';
+      // Xボタン表示制御
+      document.getElementById('tweetBtnWrap').style.display = selectedSNS === 'X（Twitter）' ? '' : 'none';
       document.getElementById('outputSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
       document.getElementById('copyBtn').textContent = 'コピー';
       document.getElementById('copyBtn').classList.remove('copied');
       updateSteps();
-    } catch (e) {
-      alert('生成エラーが発生しました。ネットワークを確認してください。');
+
+      // 履歴に保存
+      saveHistory({ sns: selectedSNS, text, date: nowStr() });
+
+    } catch(e) {
+      alert('生成エラーが発生しました。');
     }
 
     btn.classList.remove('loading');
@@ -782,12 +909,8 @@
       btn.textContent = '✓ コピー済';
       btn.classList.add('copied');
       showToast('✓ クリップボードにコピーしました');
-      setTimeout(() => {
-        btn.textContent = 'コピー';
-        btn.classList.remove('copied');
-      }, 2500);
+      setTimeout(() => { btn.textContent = 'コピー'; btn.classList.remove('copied'); }, 2500);
     }).catch(() => {
-      // fallback
       const ta = document.createElement('textarea');
       ta.value = text;
       document.body.appendChild(ta);
@@ -804,6 +927,9 @@
     t.classList.add('show');
     setTimeout(() => t.classList.remove('show'), 2500);
   }
+
+  // 初期化
+  renderHistory();
 </script>
 </body>
 </html>
